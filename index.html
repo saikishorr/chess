@@ -8,7 +8,24 @@
 </head>
 <body>
     <h1>Simple Chess Game</h1>
-    <div id="chessboard"></div>
+
+    <div id="game-info">
+        <div id="player-black-info" class="player-info">
+            <h2>Black</h2>
+            <div id="black-score" class="score">Score: 0</div>
+            <div id="black-captured-pieces" class="captured-pieces">Captured:</div>
+        </div>
+        
+        <div id="chessboard"></div>
+
+        <div id="player-white-info" class="player-info">
+            <h2>White</h2>
+            <div id="white-score" class="score">Score: 0</div>
+            <div id="white-captured-pieces" class="captured-pieces">Captured:</div>
+        </div>
+    </div>
+
+    <div id="turn-indicator">It's White's turn</div>
 
     <script src="script.js"></script>
 </body>
