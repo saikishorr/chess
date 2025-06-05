@@ -1,17 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
     const chessboard = document.getElementById('chessboard');
+    const whiteScoreDisplay = document.getElementById('white-score');
+    const blackScoreDisplay = document.getElementById('black-score');
+    const whiteCapturedPiecesDisplay = document.getElementById('white-captured-pieces');
+    const blackCapturedPiecesDisplay = document.getElementById('black-captured-pieces');
+    const turnIndicator = document.getElementById('turn-indicator');
+
     const boardSize = 8;
     let selectedPiece = null;
-    let currentBoardState = []; // This will hold the current state of the board
+    let currentBoardState = []; // This will hold the current state of the board (e.g., [['r', 'n', ...], ...])
     let currentPlayer = 'white'; // Start with white's turn
 
-    // Chess piece representations (using Unicode symbols for simplicity)
+    let whiteScore = 0;
+    let blackScore = 0;
+    let whiteCapturedPieces = [];
+    let blackCapturedPieces = [];
+
+    // Chess piece representations (Unicode symbols)
     const pieces = {
         'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
         'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
     };
 
-    // Initial board setup (FEN-like string for simplicity, only for starting position)
+    // Piece point values
+    const piecePoints = {
+        'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9,
+        'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9
+        // King points are not considered for capture
+    };
+
+    // Initial board setup
     const initialBoard = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
         ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
@@ -39,27 +57,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const pieceChar = currentBoardState[row][col];
                 if (pieceChar) {
-                    const pieceElement = document.createElement('span');
-                    pieceElement.classList.add('piece');
-                    pieceElement.textContent = pieces[pieceChar];
-                    pieceElement.dataset.piece = pieceChar;
-                    pieceElement.dataset.originalRow = row; // These will be updated on move
-                    pieceElement.dataset.originalCol = col;
-
-                    if (pieceChar === pieceChar.toUpperCase()) {
-                        pieceElement.classList.add('white');
-                    } else {
-                        pieceElement.classList.add('black');
-                    }
-                    pieceElement.setAttribute('draggable', true);
-                    square.appendChild(pieceElement);
+                    addPieceToSquare(square, pieceChar, row, col);
                 }
                 chessboard.appendChild(square);
             }
         }
+        updateTurnIndicator();
+        updateScoreDisplays();
     }
 
-    createBoard();
+    // Helper to add a piece element to a square
+    function addPieceToSquare(squareElement, pieceChar, row, col) {
+        const pieceElement = document.createElement('span');
+        pieceElement.classList.add('piece');
+        pieceElement.textContent = pieces[pieceChar];
+        pieceElement.dataset.piece = pieceChar;
+        // The originalRow/Col will now refer to the current position of the piece
+        pieceElement.dataset.originalRow = row;
+        pieceElement.dataset.originalCol = col;
+
+        if (pieceChar === pieceChar.toUpperCase()) {
+            pieceElement.classList.add('white');
+        } else {
+            pieceElement.classList.add('black');
+        }
+        pieceElement.setAttribute('draggable', true);
+        squareElement.appendChild(pieceElement);
+    }
+
+    function updateTurnIndicator() {
+        turnIndicator.textContent = `It's ${currentPlayer}'s turn`;
+    }
+
+    function updateScoreDisplays() {
+        whiteScoreDisplay.textContent = `Score: ${whiteScore}`;
+        blackScoreDisplay.textContent = `Score: ${blackScore}`;
+        whiteCapturedPiecesDisplay.textContent = 'Captured: ' + whiteCapturedPieces.map(p => pieces[p]).join(' ');
+        blackCapturedPiecesDisplay.textContent = 'Captured: ' + blackCapturedPieces.map(p => pieces[p]).join(' ');
+    }
 
     // --- Move Validation Functions ---
 
@@ -177,11 +212,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
             case 'k': // King
                 // Moves one square in any direction
+                // A very basic check to prevent moving into a square attacked by an opponent.
+                // This is a placeholder for a much more complex "is in check" logic.
+                // For a full game, you'd need to simulate the move and then check if the king is attacked.
+                // For now, this just prevents moving onto a square that would be immediately captured.
                 return rowDiff <= 1 && colDiff <= 1;
 
             default:
                 return false;
         }
+    }
+
+    // Function to highlight valid moves
+    function highlightValidMoves(pieceElement) {
+        const startRow = parseInt(pieceElement.parentElement.dataset.row);
+        const startCol = parseInt(pieceElement.parentElement.dataset.col);
+        const pieceChar = pieceElement.dataset.piece;
+
+        document.querySelectorAll('.square').forEach(square => {
+            const endRow = parseInt(square.dataset.row);
+            const endCol = parseInt(square.dataset.col);
+
+            if (isValidMove(pieceChar, startRow, startCol, endRow, endCol)) {
+                square.classList.add('valid-move');
+            }
+        });
+    }
+
+    // Function to remove highlighted moves
+    function removeValidMoveHighlights() {
+        document.querySelectorAll('.valid-move').forEach(square => {
+            square.classList.remove('valid-move');
+        });
     }
 
     // --- Drag and Drop Logic ---
@@ -194,9 +256,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Remove any previous highlights
+            removeValidMoveHighlights();
+
             selectedPiece = e.target;
+            // Add a class to the selected piece for visual feedback
+            selectedPiece.classList.add('selected-piece');
+
             selectedPiece.dataset.startRow = selectedPiece.parentElement.dataset.row; // Store starting square
             selectedPiece.dataset.startCol = selectedPiece.parentElement.dataset.col;
+
+            highlightValidMoves(selectedPiece); // Highlight valid moves for the selected piece
 
             e.target.classList.add('dragging');
             setTimeout(() => {
@@ -223,9 +293,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const pieceChar = selectedPiece.dataset.piece;
 
             if (isValidMove(pieceChar, startRow, startCol, endRow, endCol)) {
-                // Remove existing piece if it's a capture
-                if (targetSquare.children.length > 0) {
-                    targetSquare.removeChild(targetSquare.children[0]);
+                let capturedPieceChar = '';
+                // Check for capture
+                if (targetSquare.children.length > 0 && targetSquare.children[0].classList.contains('piece')) {
+                    const existingPieceElement = targetSquare.children[0];
+                    capturedPieceChar = existingPieceElement.dataset.piece;
+
+                    // If it's a capture, update scores and captured pieces list
+                    if (capturedPieceChar && piecePoints[capturedPieceChar]) {
+                        if (currentPlayer === 'white') {
+                            whiteScore += piecePoints[capturedPieceChar];
+                            whiteCapturedPieces.push(capturedPieceChar.toLowerCase()); // Store lowercase for display
+                        } else {
+                            blackScore += piecePoints[capturedPieceChar];
+                            blackCapturedPieces.push(capturedPieceChar.toUpperCase()); // Store uppercase for display
+                        }
+                        updateScoreDisplays();
+                    }
+                    targetSquare.removeChild(existingPieceElement); // Remove the captured piece
                 }
 
                 // Update the board visually
@@ -243,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Switch turn
                 currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                updateTurnIndicator();
                 console.log(`It's ${currentPlayer}'s turn.`);
 
             } else {
@@ -256,6 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset state after drop
         selectedPiece.style.opacity = '1';
         selectedPiece.classList.remove('dragging');
+        selectedPiece.classList.remove('selected-piece'); // Remove selection highlight
+        removeValidMoveHighlights(); // Clear highlights
         selectedPiece = null;
     });
 
@@ -263,9 +351,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedPiece) {
             selectedPiece.style.opacity = '1';
             selectedPiece.classList.remove('dragging');
-            // If the piece wasn't successfully dropped, it will snap back due to the drop handler.
-            // If the drop target was outside the board, this ensures it's visible.
-            selectedPiece = null;
+            selectedPiece.classList.remove('selected-piece'); // Ensure selection highlight is removed
+            removeValidMoveHighlights(); // Ensure highlights are cleared
         }
+        selectedPiece = null;
     });
+
+    // Initialize the board
+    createBoard();
 });
