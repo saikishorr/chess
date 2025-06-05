@@ -5,22 +5,31 @@ body {
     align-items: center;
     margin-top: 20px;
     background-color: #f0f0f0;
+    padding: 10px; /* Add some padding for smaller screens */
+    box-sizing: border-box; /* Include padding in element's total width */
 }
 
 h1 {
     color: #333;
-}
-
-#game-info {
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-start;
-    width: 800px; /* Adjust based on your chessboard size + info panels */
+    font-size: 2em; /* Adjust font size for better readability */
     margin-bottom: 20px;
 }
 
+/* --- Game Info Layout --- */
+#game-info {
+    display: flex;
+    flex-direction: row; /* Default to row layout for larger screens */
+    justify-content: space-around;
+    align-items: flex-start;
+    width: 90%; /* Use percentage for flexible width */
+    max-width: 800px; /* Set a max-width to prevent it from getting too wide on large screens */
+    margin-bottom: 20px;
+    gap: 20px; /* Space between player info and board */
+}
+
 .player-info {
-    width: 200px; /* Or whatever fits */
+    flex: 1; /* Allow player info sections to grow and shrink */
+    min-width: 150px; /* Ensure a minimum width */
     text-align: center;
     background-color: #e0e0e0;
     padding: 10px;
@@ -28,78 +37,88 @@ h1 {
     box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
 }
 
+.player-info h2 {
+    font-size: 1.4em;
+    margin-bottom: 5px;
+}
+
 .score {
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .captured-pieces {
-    font-size: 0.9em;
-    min-height: 20px; /* To prevent layout shift if no pieces are captured yet */
+    font-size: 0.8em;
+    min-height: 20px;
+    word-break: break-all; /* Break long strings of captured pieces */
 }
 
+/* --- Chessboard Sizing --- */
 #chessboard {
     display: grid;
-    grid-template-columns: repeat(8, 60px); /* 8 columns, each 60px wide */
-    grid-template-rows: repeat(8, 60px);    /* 8 rows, each 60px high */
+    /* Use 'minmax(0, 1fr)' for flexible columns, allowing them to shrink but not below content size */
+    /* We'll use JavaScript to dynamically set square size based on viewport */
+    grid-template-columns: repeat(8, minmax(0, 1fr)); 
+    grid-template-rows: repeat(8, minmax(0, 1fr));
     border: 2px solid #333;
     box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+    aspect-ratio: 1 / 1; /* Keep the chessboard square */
+    width: 90vw; /* Start with 90% of viewport width */
+    max-width: 480px; /* Maximum size for the chessboard */
+    margin: 0 auto; /* Center the chessboard */
 }
 
 .square {
-    width: 60px;
-    height: 60px;
+    /* Square size will be handled by the grid and aspect-ratio,
+       so 'width' and 'height' can be removed here or set to 100% */
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 30px; /* For piece representation */
-    cursor: grab; /* Indicates draggable */
-    user-select: none; /* Prevent text selection */
+    font-size: 4.5vw; /* Adjust font size relative to viewport width */
+    cursor: grab;
+    user-select: none;
+    box-sizing: border-box; /* Important for borders/padding */
 }
 
 .light {
-    background-color: #f0d9b5; /* Light square color */
+    background-color: #f0d9b5;
 }
 
 .dark {
-    background-color: #b58863; /* Dark square color */
+    background-color: #b58863;
 }
 
-/* Optional: Style for dragged piece */
 .dragging {
     opacity: 0.7;
     cursor: grabbing;
 }
 
-/* Basic piece styling (you'd use actual images/SVGs in a real game) */
 .piece {
-    font-size: 40px;
+    font-size: 1em; /* Relative to parent .square font-size */
     cursor: grab;
     user-select: none;
-    line-height: 1; /* Adjust for better vertical alignment */
+    line-height: 1;
 }
 
-/* White pieces */
 .piece.white {
-    color: #fff; /* Example: white pieces */
+    color: #fff;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }
 
-/* Black pieces */
 .piece.black {
-    color: #000; /* Example: black pieces */
+    color: #000;
     text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
 }
 
-/* New styles for highlighting valid moves */
 .valid-move {
-    background-color: rgba(0, 255, 0, 0.3); /* Green overlay for valid moves */
+    background-color: rgba(0, 255, 0, 0.3);
     border: 2px solid green;
-    box-sizing: border-box; /* Include padding/border in element's total width and height */
+    box-sizing: border-box;
 }
 
-/* Style for selected piece (optional) */
 .selected-piece {
     border: 2px solid blue;
     box-sizing: border-box;
@@ -107,7 +126,78 @@ h1 {
 
 #turn-indicator {
     margin-top: 15px;
-    font-size: 1.5em;
+    font-size: 1.3em; /* Slightly smaller for mobile */
     font-weight: bold;
     color: #444;
+    text-align: center; /* Center the turn indicator */
+    padding: 0 10px; /* Add horizontal padding */
+}
+
+/* --- Media Queries for Mobile Responsiveness --- */
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8em;
+    }
+
+    #game-info {
+        flex-direction: column; /* Stack player info vertically on smaller screens */
+        align-items: center; /* Center items when stacked */
+        width: 95%; /* Take more width on smaller screens */
+    }
+
+    .player-info {
+        width: 100%; /* Full width for player info sections */
+        margin-bottom: 15px; /* Space between stacked player info */
+        max-width: 300px; /* Limit width of player info on smaller screens for better readability */
+    }
+
+    /* Adjust font size for pieces on smaller screens */
+    .square {
+        font-size: 10vw; /* Larger pieces for touch interaction */
+    }
+
+    #chessboard {
+        width: 95vw; /* Take up more screen width on smaller devices */
+        max-width: 400px; /* Limit max size for tablets */
+    }
+
+    #turn-indicator {
+        font-size: 1.2em;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.5em;
+    }
+
+    .player-info {
+        padding: 8px;
+    }
+
+    .player-info h2 {
+        font-size: 1.2em;
+    }
+
+    .score {
+        font-size: 1em;
+    }
+
+    .captured-pieces {
+        font-size: 0.75em;
+    }
+
+    /* Even larger pieces for very small screens */
+    .square {
+        font-size: 11vw;
+    }
+    
+    #chessboard {
+        width: 98vw; /* Almost full width on very small screens */
+    }
+
+    #turn-indicator {
+        font-size: 1em;
+    }
 }
