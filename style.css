@@ -11,6 +11,34 @@ h1 {
     color: #333;
 }
 
+#game-info {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    width: 800px; /* Adjust based on your chessboard size + info panels */
+    margin-bottom: 20px;
+}
+
+.player-info {
+    width: 200px; /* Or whatever fits */
+    text-align: center;
+    background-color: #e0e0e0;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+}
+
+.score {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.captured-pieces {
+    font-size: 0.9em;
+    min-height: 20px; /* To prevent layout shift if no pieces are captured yet */
+}
+
 #chessboard {
     display: grid;
     grid-template-columns: repeat(8, 60px); /* 8 columns, each 60px wide */
@@ -62,4 +90,24 @@ h1 {
 .piece.black {
     color: #000; /* Example: black pieces */
     text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+}
+
+/* New styles for highlighting valid moves */
+.valid-move {
+    background-color: rgba(0, 255, 0, 0.3); /* Green overlay for valid moves */
+    border: 2px solid green;
+    box-sizing: border-box; /* Include padding/border in element's total width and height */
+}
+
+/* Style for selected piece (optional) */
+.selected-piece {
+    border: 2px solid blue;
+    box-sizing: border-box;
+}
+
+#turn-indicator {
+    margin-top: 15px;
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #444;
 }
