@@ -8,13 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const boardSize = 8;
     let selectedPiece = null;
-    let currentBoardState = []; // This will hold the current state of the board (e.g., [['r', 'n', ...], ...])
+    let currentBoardState = []; // This will hold the current state of the board
     let currentPlayer = 'white'; // Start with white's turn
 
     let whiteScore = 0;
     let blackScore = 0;
     let whiteCapturedPieces = [];
     let blackCapturedPieces = [];
+
+    let gameOver = false; // New: Flag to indicate if the game has ended
 
     // Chess piece representations (Unicode symbols)
     const pieces = {
@@ -72,8 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pieceElement.classList.add('piece');
         pieceElement.textContent = pieces[pieceChar];
         pieceElement.dataset.piece = pieceChar;
-        // The originalRow/Col will now refer to the current position of the piece
-        pieceElement.dataset.originalRow = row;
+        pieceElement.dataset.originalRow = row; // Current position
         pieceElement.dataset.originalCol = col;
 
         if (pieceChar === pieceChar.toUpperCase()) {
@@ -85,8 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
         squareElement.appendChild(pieceElement);
     }
 
-    function updateTurnIndicator() {
-        turnIndicator.textContent = `It's ${currentPlayer}'s turn`;
+    function updateTurnIndicator(message = null) {
+        if (message) {
+            turnIndicator.textContent = message;
+        } else {
+            turnIndicator.textContent = `It's ${currentPlayer}'s turn`;
+        }
     }
 
     function updateScoreDisplays() {
@@ -103,7 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return pieceChar === pieceChar.toUpperCase() ? 'white' : 'black';
     }
 
-    function isPathClear(startRow, startCol, endRow, endCol) {
+    // This function checks if a path is clear between two points.
+    // It's used by Rook, Bishop, Queen. Knight and King don't use this.
+    function isPathClear(startRow, startCol, endRow, endCol, board) {
         const rowDiff = endRow - startRow;
         const colDiff = endCol - startCol;
 
@@ -111,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rowDiff === 0 && colDiff !== 0) {
             const step = colDiff > 0 ? 1 : -1;
             for (let c = startCol + step; c !== endCol; c += step) {
-                if (currentBoardState[startRow][c] !== '') {
+                if (board[startRow][c] !== '') {
                     return false;
                 }
             }
@@ -120,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (colDiff === 0 && rowDiff !== 0) {
             const step = rowDiff > 0 ? 1 : -1;
             for (let r = startRow + step; r !== endRow; r += step) {
-                if (currentBoardState[r][startCol] !== '') {
+                if (board[r][startCol] !== '') {
                     return false;
                 }
             }
@@ -132,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let r = startRow + rowStep;
             let c = startCol + colStep;
             while (r !== endRow && c !== endCol) {
-                if (currentBoardState[r][c] !== '') {
+                if (board[r][c] !== '') {
                     return false;
                 }
                 r += rowStep;
@@ -142,9 +149,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    function isValidMove(pieceChar, startRow, startCol, endRow, endCol) {
+    /**
+     * Checks if a move is valid based on general chess rules and specific piece rules.
+     * @param {string} pieceChar - The character representing the piece (e.g., 'P', 'r').
+     * @param {number} startRow - Starting row.
+     * @param {number} startCol - Starting column.
+     * @param {number} endRow - Ending row.
+     * @param {number} endCol - Ending column.
+     * @param {Array<Array<string>>} board - The current board state to validate against.
+     * @returns {boolean} True if the move is generally valid, false otherwise.
+     */
+    function isValidPieceMove(pieceChar, startRow, startCol, endRow, endCol, board) {
         const pieceColor = getPieceColor(pieceChar);
-        const targetPieceChar = currentBoardState[endRow][endCol];
+        const targetPieceChar = board[endRow][endCol];
         const targetPieceColor = getPieceColor(targetPieceChar);
 
         // Cannot move to the same square
@@ -168,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (endRow === startRow - 1 && targetPieceChar === '') { // 1 square forward
                             return true;
                         }
-                        if (startRow === 6 && endRow === startRow - 2 && targetPieceChar === '' && currentBoardState[startRow - 1][startCol] === '') { // 2 squares from start
+                        if (startRow === 6 && endRow === startRow - 2 && targetPieceChar === '' && board[startRow - 1][startCol] === '') { // 2 squares from start
                             return true;
                         }
                     } else if (colDiff === 1 && endRow === startRow - 1) { // Capture diagonally
@@ -183,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (endRow === startRow + 1 && targetPieceChar === '') { // 1 square forward
                             return true;
                         }
-                        if (startRow === 1 && endRow === startRow + 2 && targetPieceChar === '' && currentBoardState[startRow + 1][startCol] === '') { // 2 squares from start
+                        if (startRow === 1 && endRow === startRow + 2 && targetPieceChar === '' && board[startRow + 1][startCol] === '') { // 2 squares from start
                             return true;
                         }
                     } else if (colDiff === 1 && endRow === startRow + 1) { // Capture diagonally
@@ -195,33 +212,128 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
 
             case 'n': // Knight
-                // L-shape move: (2 squares in one direction, 1 square perpendicular)
                 return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
 
             case 'b': // Bishop
-                // Diagonal move
-                return rowDiff === colDiff && isPathClear(startRow, startCol, endRow, endCol);
+                return rowDiff === colDiff && isPathClear(startRow, startCol, endRow, endCol, board);
 
             case 'r': // Rook
-                // Horizontal or Vertical move
-                return (rowDiff === 0 || colDiff === 0) && isPathClear(startRow, startCol, endRow, endCol);
+                return (rowDiff === 0 || colDiff === 0) && isPathClear(startRow, startCol, endRow, endCol, board);
 
             case 'q': // Queen
-                // Horizontal, Vertical, or Diagonal move
-                return ((rowDiff === 0 || colDiff === 0) || (rowDiff === colDiff)) && isPathClear(startRow, startCol, endRow, endCol);
+                return ((rowDiff === 0 || colDiff === 0) || (rowDiff === colDiff)) && isPathClear(startRow, startCol, endRow, startCol, board); // Fixed a bug here: Should be endCol for isPathClear
 
             case 'k': // King
-                // Moves one square in any direction
-                // A very basic check to prevent moving into a square attacked by an opponent.
-                // This is a placeholder for a much more complex "is in check" logic.
-                // For a full game, you'd need to simulate the move and then check if the king is attacked.
-                // For now, this just prevents moving onto a square that would be immediately captured.
                 return rowDiff <= 1 && colDiff <= 1;
 
             default:
                 return false;
         }
     }
+
+    /**
+     * Finds the King's position for a given color.
+     * @param {string} kingColor - 'white' or 'black'.
+     * @param {Array<Array<string>>} board - The current board state.
+     * @returns {{row: number, col: number}|null} King's position or null if not found.
+     */
+    function findKingPosition(kingColor, board) {
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                const piece = board[r][c];
+                if (piece.toLowerCase() === 'k' && getPieceColor(piece) === kingColor) {
+                    return { row: r, col: c };
+                }
+            }
+        }
+        return null; // Should not happen in a valid game
+    }
+
+    /**
+     * Checks if a specific square is attacked by pieces of a given color.
+     * @param {number} targetRow - The row of the square to check.
+     * @param {number} targetCol - The column of the square to check.
+     * @param {string} attackingColor - The color of the pieces that might be attacking ('white' or 'black').
+     * @param {Array<Array<string>>} board - The board state to analyze.
+     * @returns {boolean} True if the square is attacked, false otherwise.
+     */
+    function isSquareAttacked(targetRow, targetCol, attackingColor, board) {
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                const piece = board[r][c];
+                if (piece && getPieceColor(piece) === attackingColor) {
+                    // Check if this piece can legally move to the target square
+                    // We use isValidPieceMove for this virtual check
+                    if (isValidPieceMove(piece, r, c, targetRow, targetCol, board)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if a king of a specific color is currently in check.
+     * @param {string} kingColor - The color of the king to check ('white' or 'black').
+     * @param {Array<Array<string>>} board - The board state to analyze.
+     * @returns {boolean} True if the king is in check, false otherwise.
+     */
+    function isKingInCheck(kingColor, board) {
+        const kingPos = findKingPosition(kingColor, board);
+        if (!kingPos) return false; // Should not happen
+
+        const attackingColor = kingColor === 'white' ? 'black' : 'white';
+        return isSquareAttacked(kingPos.row, kingPos.col, attackingColor, board);
+    }
+
+    /**
+     * Checks if the given player is in checkmate.
+     * This is the most complex function. It tests all possible legal moves
+     * for the `kingColor` to see if any move gets them out of check.
+     * @param {string} kingColor - The color of the king to check for checkmate.
+     * @param {Array<Array<string>>} board - The current board state.
+     * @returns {boolean} True if in checkmate, false otherwise.
+     */
+    function isCheckmate(kingColor, board) {
+        // 1. If the king is not in check, it cannot be checkmate.
+        if (!isKingInCheck(kingColor, board)) {
+            return false;
+        }
+
+        // 2. Iterate through ALL pieces of the kingColor
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                const piece = board[r][c];
+                if (piece && getPieceColor(piece) === kingColor) {
+                    // 3. For each piece, try all possible moves (all 64 squares)
+                    for (let newR = 0; newR < boardSize; newR++) {
+                        for (let newC = 0; newC < boardSize; newC++) {
+                            // If it's a valid move for that piece type...
+                            if (isValidPieceMove(piece, r, c, newR, newC, board)) {
+                                // 4. Simulate the move on a temporary board
+                                const tempBoard = board.map(row => [...row]); // Deep copy
+                                const capturedPiece = tempBoard[newR][newC]; // Store potentially captured piece
+                                tempBoard[newR][newC] = piece;
+                                tempBoard[r][c] = '';
+
+                                // 5. Check if the king is still in check after this simulated move
+                                if (!isKingInCheck(kingColor, tempBoard)) {
+                                    // If the king is NOT in check, then there's a legal move
+                                    // that gets the king out of check, so it's NOT checkmate.
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. If no legal move was found that gets the king out of check, it's checkmate.
+        return true;
+    }
+
 
     // Function to highlight valid moves
     function highlightValidMoves(pieceElement) {
@@ -233,9 +345,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const endRow = parseInt(square.dataset.row);
             const endCol = parseInt(square.dataset.col);
 
-            if (isValidMove(pieceChar, startRow, startCol, endRow, endCol)) {
+            // Temporarily simulate the move to check for check
+            const tempBoard = currentBoardState.map(row => [...row]);
+            const tempPiece = tempBoard[startRow][startCol];
+            const tempCapturedPiece = tempBoard[endRow][endCol];
+
+            tempBoard[endRow][endCol] = tempPiece;
+            tempBoard[startRow][startCol] = '';
+
+            // Only highlight if the move is generally valid AND it doesn't put/leave own king in check
+            if (isValidPieceMove(pieceChar, startRow, startCol, endRow, endCol, currentBoardState) &&
+                !isKingInCheck(currentPlayer, tempBoard)) { // Check if king is safe AFTER the move
                 square.classList.add('valid-move');
             }
+
+            // Revert temp board (not strictly necessary here as tempBoard is local)
+            // tempBoard[startRow][startCol] = tempPiece;
+            // tempBoard[endRow][endCol] = tempCapturedPiece;
         });
     }
 
@@ -249,6 +375,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Drag and Drop Logic ---
 
     chessboard.addEventListener('dragstart', (e) => {
+        if (gameOver) { // Prevent moves if game is over
+            e.preventDefault();
+            return;
+        }
+
         if (e.target.classList.contains('piece')) {
             const pieceColor = getPieceColor(e.target.dataset.piece);
             if (pieceColor !== currentPlayer) {
@@ -256,14 +387,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Remove any previous highlights
+            // Remove any previous highlights and selection
             removeValidMoveHighlights();
+            if (selectedPiece) selectedPiece.classList.remove('selected-piece');
 
             selectedPiece = e.target;
-            // Add a class to the selected piece for visual feedback
             selectedPiece.classList.add('selected-piece');
 
-            selectedPiece.dataset.startRow = selectedPiece.parentElement.dataset.row; // Store starting square
+            selectedPiece.dataset.startRow = selectedPiece.parentElement.dataset.row;
             selectedPiece.dataset.startCol = selectedPiece.parentElement.dataset.col;
 
             highlightValidMoves(selectedPiece); // Highlight valid moves for the selected piece
@@ -281,9 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chessboard.addEventListener('drop', (e) => {
         e.preventDefault();
-        if (!selectedPiece) return;
+        if (!selectedPiece || gameOver) return;
 
-        let targetSquare = e.target.closest('.square'); // Get the square element
+        let targetSquare = e.target.closest('.square');
         const startRow = parseInt(selectedPiece.dataset.startRow);
         const startCol = parseInt(selectedPiece.dataset.startCol);
 
@@ -292,47 +423,69 @@ document.addEventListener('DOMContentLoaded', () => {
             const endCol = parseInt(targetSquare.dataset.col);
             const pieceChar = selectedPiece.dataset.piece;
 
-            if (isValidMove(pieceChar, startRow, startCol, endRow, endCol)) {
-                let capturedPieceChar = '';
-                // Check for capture
+            // Simulate the potential move to check for king safety BEFORE actual move
+            const tempBoard = currentBoardState.map(row => [...row]);
+            const tempCapturedPieceChar = tempBoard[endRow][endCol];
+            tempBoard[endRow][endCol] = pieceChar;
+            tempBoard[startRow][startCol] = '';
+
+            // Check if the move is valid for the piece type AND doesn't leave own king in check
+            if (isValidPieceMove(pieceChar, startRow, startCol, endRow, endCol, currentBoardState) &&
+                !isKingInCheck(currentPlayer, tempBoard)) {
+
+                // If a piece was captured, update scores and lists
                 if (targetSquare.children.length > 0 && targetSquare.children[0].classList.contains('piece')) {
                     const existingPieceElement = targetSquare.children[0];
-                    capturedPieceChar = existingPieceElement.dataset.piece;
+                    const capturedPieceChar = existingPieceElement.dataset.piece;
 
-                    // If it's a capture, update scores and captured pieces list
                     if (capturedPieceChar && piecePoints[capturedPieceChar]) {
                         if (currentPlayer === 'white') {
                             whiteScore += piecePoints[capturedPieceChar];
-                            whiteCapturedPieces.push(capturedPieceChar.toLowerCase()); // Store lowercase for display
+                            whiteCapturedPieces.push(capturedPieceChar.toLowerCase());
                         } else {
                             blackScore += piecePoints[capturedPieceChar];
-                            blackCapturedPieces.push(capturedPieceChar.toUpperCase()); // Store uppercase for display
+                            blackCapturedPieces.push(capturedPieceChar.toUpperCase());
                         }
                         updateScoreDisplays();
                     }
-                    targetSquare.removeChild(existingPieceElement); // Remove the captured piece
+                    targetSquare.removeChild(existingPieceElement); // Remove the captured piece visually
                 }
 
                 // Update the board visually
                 targetSquare.appendChild(selectedPiece);
 
-                // Update the internal board state
-                currentBoardState[endRow][endCol] = pieceChar;
-                currentBoardState[startRow][startCol] = '';
+                // Update the internal board state (use the values from the temp board now)
+                currentBoardState = tempBoard;
 
                 // Update the selected piece's data- attributes for future moves
                 selectedPiece.dataset.originalRow = endRow;
                 selectedPiece.dataset.originalCol = endCol;
-                selectedPiece.dataset.startRow = endRow; // Also update startRow/Col for consistency
+                selectedPiece.dataset.startRow = endRow;
                 selectedPiece.dataset.startCol = endCol;
 
                 // Switch turn
                 currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
                 updateTurnIndicator();
-                console.log(`It's ${currentPlayer}'s turn.`);
+
+                // Check for check or checkmate after the move
+                const opponentColor = currentPlayer; // Current player is now the one whose turn just ended, so it's the opponent
+                if (isKingInCheck(opponentColor, currentBoardState)) {
+                    if (isCheckmate(opponentColor, currentBoardState)) {
+                        gameOver = true;
+                        updateTurnIndicator(`CHECKMATE! ${opponentColor === 'white' ? 'Black' : 'White'} wins!`);
+                        console.log(`CHECKMATE! ${opponentColor === 'white' ? 'Black' : 'White'} wins!`);
+                        // Optionally disable further drags
+                        chessboard.removeEventListener('dragstart', handleDragStart); // You'd need to convert event listeners to named functions
+                    } else {
+                        updateTurnIndicator(`${opponentColor}'s King is in CHECK!`);
+                        console.log(`${opponentColor}'s King is in CHECK!`);
+                    }
+                } else {
+                    console.log(`It's ${currentPlayer}'s turn.`);
+                }
 
             } else {
-                console.log("Invalid move!");
+                console.log("Invalid move or leaves king in check!");
                 // Move the piece back to its original position if the move was invalid
                 const originalSquare = document.querySelector(`[data-row="${startRow}"][data-col="${startCol}"]`);
                 originalSquare.appendChild(selectedPiece);
@@ -342,8 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset state after drop
         selectedPiece.style.opacity = '1';
         selectedPiece.classList.remove('dragging');
-        selectedPiece.classList.remove('selected-piece'); // Remove selection highlight
-        removeValidMoveHighlights(); // Clear highlights
+        selectedPiece.classList.remove('selected-piece');
+        removeValidMoveHighlights();
         selectedPiece = null;
     });
 
@@ -351,12 +504,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedPiece) {
             selectedPiece.style.opacity = '1';
             selectedPiece.classList.remove('dragging');
-            selectedPiece.classList.remove('selected-piece'); // Ensure selection highlight is removed
-            removeValidMoveHighlights(); // Ensure highlights are cleared
+            selectedPiece.classList.remove('selected-piece');
+            removeValidMoveHighlights();
         }
         selectedPiece = null;
     });
 
-    // Initialize the board
+    // Initial setup
     createBoard();
 });
