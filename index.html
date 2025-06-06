@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Chess Game</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/chess.js@1.0.0-beta.7/chess.js"></script>
 </head>
 <body>
     <h1>Simple Chess Game</h1>
@@ -26,6 +27,10 @@
     </div>
 
     <div id="turn-indicator">It's White's turn</div>
+
+    <div id="game-controls">
+        <button id="undo-button" disabled>Undo Last Move</button>
+    </div>
 
     <script src="script.js"></script>
 </body>
