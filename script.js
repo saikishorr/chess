@@ -513,3 +513,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial setup
     createBoard();
 });
+
+
